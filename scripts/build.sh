@@ -34,14 +34,24 @@ fi
 
 # Build the whole workspace like the release workflow (`cargo build --release`),
 # so cargo unifies features exactly as it did for the official binary.
+#
+# The official workspace is built first and the plugin second, so the fat-LTO
+# links of the server and the plugin don't run at the same time. Running them
+# together ran a GitHub runner out of memory. The plugin only uses features the
+# server already enables, so both steps resolve the same features and the
+# second step reuses everything the first one built.
 cd "$PUMPKIN"
 if [ "$MODE" = "--debug" ]; then
-    cargo build
+    PROFILE_FLAG=""
     PROFILE=debug
 else
-    cargo build --release
+    PROFILE_FLAG="--release"
     PROFILE=release
 fi
+# shellcheck disable=SC2086 # PROFILE_FLAG is empty or one word
+cargo build $PROFILE_FLAG --workspace --exclude fast-leaf-decay
+# shellcheck disable=SC2086
+cargo build $PROFILE_FLAG
 
 for f in fast_leaf_decay.dll libfast_leaf_decay.so libfast_leaf_decay.dylib; do
     if [ -f "target/$PROFILE/$f" ]; then

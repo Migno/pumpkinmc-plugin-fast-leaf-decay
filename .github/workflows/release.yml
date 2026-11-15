@@ -1,0 +1,134 @@
+name: Release
+
+# Builds the plugin for every platform that has an official Pumpkin release
+# binary. Each job mirrors Pumpkin's own release workflow for that platform:
+# same runner, same compiler (RUST_VERSION), whole-workspace `cargo build
+# --release` at the Pumpkin tag in PUMPKIN_VERSION. That makes the plugin's
+# types match the official binary it is loaded into.
+#
+# Push a tag like v0.1.0 to publish a GitHub release; run it manually to only
+# get the files as workflow artifacts.
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+  # Same as Pumpkin's release workflow.
+  RUSTFLAGS: "-Dwarnings"
+
+jobs:
+  build:
+    name: Build (${{ matrix.arch }}-${{ matrix.platform }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # One x64 build serves both the X64 and X64-v3 server binaries:
+          # target-cpu changes instructions, not type layouts, and a generic
+          # x64 plugin runs on every x64 CPU.
+          - os: ubuntu-latest
+            arch: X64
+            platform: Linux
+            file: libfast_leaf_decay.so
+          - os: ubuntu-26.04-arm
+            arch: ARM64
+            platform: Linux
+            file: libfast_leaf_decay.so
+          - os: windows-latest
+            arch: X64
+            platform: Windows
+            file: fast_leaf_decay.dll
+          - os: windows-11-arm
+            arch: ARM64
+            platform: Windows
+            file: fast_leaf_decay.dll
+          - os: macos-latest
+            arch: ARM64
+            platform: macOS
+            file: libfast_leaf_decay.dylib
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: plugin
+
+      - name: Read pinned versions
+        shell: bash
+        run: |
+          echo "PUMPKIN_TAG=$(tr -d '[:space:]' < plugin/PUMPKIN_VERSION)" >> "$GITHUB_ENV"
+          echo "RUST_VERSION=$(tr -d '[:space:]' < plugin/RUST_VERSION)" >> "$GITHUB_ENV"
+          echo "PLUGIN_VERSION=$(grep -m1 '^version' plugin/Cargo.toml | cut -d'"' -f2)" >> "$GITHUB_ENV"
+
+      - uses: actions/checkout@v4
+        with:
+          repository: Pumpkin-MC/Pumpkin
+          ref: ${{ env.PUMPKIN_TAG }}
+          path: pumpkin
+          submodules: recursive
+
+      - name: Install Rust ${{ env.RUST_VERSION }}
+        shell: bash
+        run: rustup toolchain install "$RUST_VERSION" --profile minimal
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: pumpkin
+          key: ${{ matrix.arch }}-${{ matrix.platform }}-${{ env.PUMPKIN_TAG }}
+
+      - name: Build
+        shell: bash
+        run: bash plugin/scripts/build.sh pumpkin
+
+      - name: Prepare artifact
+        shell: bash
+        run: |
+          EXT="${{ matrix.file }}"; EXT="${EXT##*.}"
+          NAME="fast-leaf-decay-${PLUGIN_VERSION}-pumpkin-${PUMPKIN_TAG}-${{ matrix.arch }}-${{ matrix.platform }}.${EXT}"
+          mkdir -p dist
+          cp "pumpkin/target/release/${{ matrix.file }}" "dist/${NAME}"
+          echo "ARTIFACT=${NAME}" >> "$GITHUB_ENV"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ARTIFACT }}
+          path: dist/${{ env.ARTIFACT }}
+          if-no-files-found: error
+
+  release:
+    name: Publish release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          PUMPKIN_TAG="$(tr -d '[:space:]' < PUMPKIN_VERSION)"
+          RUST_VERSION="$(tr -d '[:space:]' < RUST_VERSION)"
+          cd dist
+          sha256sum * > checksums.sha256
+          cat > ../notes.md <<EOF
+          Fast leaf decay for **Pumpkin ${PUMPKIN_TAG}** (official release binaries).
+
+          Built against Pumpkin tag \`${PUMPKIN_TAG}\` with rustc ${RUST_VERSION}, the same as the official release.
+          It only works with that exact Pumpkin release. Use the file for your server's platform; the X64 file also
+          works with the X64-v3 server binaries.
+
+          Put the file into the server's \`plugins/\` folder and restart.
+          EOF
+          gh release create "$GITHUB_REF_NAME" * --title "fast-leaf-decay ${GITHUB_REF_NAME} for Pumpkin ${PUMPKIN_TAG}" --notes-file ../notes.md

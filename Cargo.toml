@@ -1,0 +1,22 @@
+[package]
+name = "fast-leaf-decay"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+description = "Leaves of a felled tree decay within about a second instead of minutes."
+license = "GPL-3.0"
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+
+# This crate is not built on its own. `scripts/build.sh` copies it into a
+# Pumpkin checkout at the release in PUMPKIN_VERSION, adds it as a workspace
+# member and builds the whole workspace, exactly like Pumpkin's release
+# workflow does. That gives the plugin the same dependency versions, features
+# and profile as the official server binary it is loaded into.
+[dependencies]
+pumpkin-core.workspace = true
+pumpkin-data = { workspace = true, features = ["default"] }
+pumpkin-util.workspace = true
+pumpkin-world.workspace = true

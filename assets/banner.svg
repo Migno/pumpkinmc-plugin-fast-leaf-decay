@@ -79,5 +79,5 @@
   <text x="470" y="150" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="30" font-weight="600" letter-spacing="6" fill="#9ccc65">PUMPKIN PLUGIN</text>
   <text x="466" y="232" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="92" font-weight="800" fill="url(#title)">Fast Leaf Decay</text>
   <text x="470" y="288" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="30" fill="#d7e4d0">Chop the trunk. The leaves are gone in a second.</text>
-  <text x="470" y="330" font-family="Consolas, Menlo, monospace" font-size="20" fill="#7f9a78">native · Windows · Linux · macOS · vanilla loot · cancellable</text>
+  <text x="470" y="330" font-family="Consolas, Menlo, monospace" font-size="20" fill="#7f9a78">WebAssembly · one file for every platform · vanilla loot</text>
 </svg>

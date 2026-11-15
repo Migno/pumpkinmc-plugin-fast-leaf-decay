@@ -1,22 +1,23 @@
 [package]
 name = "fast-leaf-decay"
 version = "0.1.0"
-edition.workspace = true
-rust-version.workspace = true
+edition = "2024"
 description = "Leaves of a felled tree decay within about a second instead of minutes."
-license = "GPL-3.0"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/Migno/pumpkinmc-plugin-fast-leaf-decay"
 publish = false
 
 [lib]
 crate-type = ["cdylib"]
 
-# This crate is not built on its own. `scripts/build.sh` copies it into a
-# Pumpkin checkout at the release in PUMPKIN_VERSION, adds it as a workspace
-# member and builds the whole workspace, exactly like Pumpkin's release
-# workflow does. That gives the plugin the same dependency versions, features
-# and profile as the official server binary it is loaded into.
 [dependencies]
-pumpkin-core.workspace = true
-pumpkin-data = { workspace = true, features = ["default"] }
-pumpkin-util.workspace = true
-pumpkin-world.workspace = true
+# The plugin SDK from the Pumpkin release this plugin targets (see PUMPKIN_VERSION).
+# Wasm plugins talk to the server through the stable v0.1 WIT interface.
+pumpkin-plugin-api = { git = "https://github.com/Pumpkin-MC/Pumpkin", tag = "0.2.2+26.3-26.60" }
+tracing = "0.1"
+
+[profile.release]
+lto = true
+opt-level = "s"
+strip = true
+codegen-units = 1

@@ -15,7 +15,7 @@ use std::{
 };
 
 use pumpkin_plugin_api::{
-    Context, Plugin, PluginMetadata, Server,
+    Context, GameRule, Plugin, PluginMetadata, Server,
     common::BlockPos,
     events::{BlockBreakEvent, EventHandler, EventPriority, LeavesDecayEvent},
     events_wit::{BlockBreakEventData, LeavesDecayEventData},
@@ -261,8 +261,9 @@ fn try_decay(
 
     let (x, y, z) = pos;
     // `loot … mine` reads the block, so it has to run while the leaf is still there.
-    // `execute in` also makes the command source silent on Pumpkin 0.2.2, so the
-    // drops print nothing to the console or to ops.
+    // The v0.1 API has no way to drop loot directly (v0.2's `break-block` does,
+    // but release servers do not load v0.2 plugins yet). `tick` mutes the
+    // feedback this command sends to ops.
     server.execute_command(
         &format!(
             "execute in {dimension} run loot spawn {} {} {} mine {x} {y} {z}",
@@ -335,15 +336,35 @@ fn tick(server: &Server) {
     for (name, pos) in due {
         by_world.entry(name).or_default().push(pos);
     }
-    for (name, positions) in by_world {
-        let Some(world) = server.get_world_by_name(&name) else {
-            continue;
-        };
+    let worlds: Vec<(World, String, Vec<Pos>)> = by_world
+        .into_iter()
+        .filter_map(|(name, positions)| {
+            server
+                .get_world_by_name(&name)
+                .map(|world| (world, name, positions))
+        })
+        .collect();
+    let Some((rules, ..)) = worlds.first() else {
+        return;
+    };
+
+    // `/loot` reports every drop as "Dropped N items" to all online ops. That
+    // broadcast is gated on `sendCommandFeedback`, so turn it off while our
+    // commands run. Setting a rule through the API sends no feedback of its own,
+    // and every world shares the server's game rules, so one world is enough.
+    let mute = rules.get_game_rule_bool(GameRule::SendCommandFeedback) == Some(true);
+    if mute {
+        rules.set_game_rule_bool(GameRule::SendCommandFeedback, false);
+    }
+    for (world, name, positions) in &worlds {
         let dimension = world.get_dimension();
-        let mut reader = Reader::new(&world);
-        for pos in positions {
-            try_decay(server, &mut reader, &name, &dimension, pos);
+        let mut reader = Reader::new(world);
+        for &pos in positions {
+            try_decay(server, &mut reader, name, &dimension, pos);
         }
+    }
+    if mute {
+        rules.set_game_rule_bool(GameRule::SendCommandFeedback, true);
     }
 }
 

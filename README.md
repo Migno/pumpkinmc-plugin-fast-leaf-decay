@@ -19,7 +19,7 @@ Chop down a tree on your [Pumpkin](https://pumpkinmc.org) server and its leaves 
 - 🧱 **Vanilla rules:** a leaf only decays if no log is within 6 blocks through leaves, the same rule vanilla uses. Player-placed leaves never decay.
 - 🧩 **One file, every platform:** a single WebAssembly plugin runs on Windows, Linux and macOS, on x64 and ARM.
 - 🛡️ **Safe:** it runs in Pumpkin's Wasm sandbox and only uses the stable plugin API, so it can't crash the server.
-- 🤫 **Quiet:** no console spam and no chat messages.
+- 🤫 **Quiet:** no chat messages, not even for ops. (The server console still logs each drop as "Dropped N items", because the plugin API has no way to drop loot without a command.)
 
 ## Install
 

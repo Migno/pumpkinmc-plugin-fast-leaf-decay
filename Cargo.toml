@@ -1,6 +1,6 @@
 [package]
 name = "fast-leaf-decay"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 description = "Leaves of a felled tree decay within about a second instead of minutes."
 license = "MIT OR Apache-2.0"
